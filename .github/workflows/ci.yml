@@ -2,23 +2,24 @@ name: CI Pipeline
 
 on:
   pull_request:
-    branches:
-      - develop
+    branches: [ develop ]
   push:
-    branches:
-      - feature/ci-pipeline
+    branches: [ feature/ci-pipeline ]
 
 jobs:
 
-  # --------------------------- LINT ---------------------------
   lint:
-    name: Lint Frontend & Backend
+    name: Lint frontend & backend
     runs-on: self-hosted
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install frontend deps
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install frontend
         working-directory: frontend
         run: npm install
 
@@ -26,7 +27,7 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
-      - name: Install backend deps
+      - name: Install backend
         working-directory: backend
         run: npm install
 
@@ -34,78 +35,78 @@ jobs:
         working-directory: backend
         run: npm run lint
 
-  # --------------------------- BUILD ---------------------------
   build:
-    name: Build Frontend & Backend
+    name: Build frontend & backend
     runs-on: self-hosted
     needs: lint
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install frontend deps
-        working-directory: frontend
-        run: npm install
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
       - name: Build frontend
         working-directory: frontend
-        run: npm run build
-
-      - name: Install backend deps
-        working-directory: backend
-        run: npm install
+        run: npm install && npm run build
 
       - name: Build backend
         working-directory: backend
-        run: npm run build || echo "⚠️ Backend has no build step"
+        run: |
+          npm install
+          if [ -f "package.json" ] && grep -q '"build"' package.json; then
+            npm run build
+          else
+            echo "No backend build script"
+          fi
 
-  # --------------------------- TESTS ---------------------------
   tests:
-    name: Backend Tests
+    name: Run backend tests
     runs-on: self-hosted
     needs: build
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install backend deps
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend
         working-directory: backend
         run: npm install
 
       - name: Run tests
         working-directory: backend
-        run: npm test || echo "⚠️ No tests implemented"
+        run: npm test
 
-  # --------------------------- SONARCLOUD ---------------------------
-  sonar:
-    name: SonarCloud Analysis
+  sonarcloud:
+    name: SonarCloud Quality Analysis
     runs-on: self-hosted
     needs: tests
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install backend deps
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend dependencies
         working-directory: backend
         run: npm install
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
-        with:
-          projectBaseDir: backend
-          args: >
-            -Dsonar.projectKey=Crmy7_CloudNativeApplicationCurse
-            -Dsonar.organization=crmy7
+      - name: Run SonarCloud Scanner
+        working-directory: backend
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: SonarCloud Quality Gate
-        uses: SonarSource/sonarcloud-github-action@v2
-        with:
-          projectBaseDir: backend
-          args: >
-            -Dsonar.projectKey=Crmy7_CloudNativeApplicationCurse
-            -Dsonar.organization=crmy7
-            -Dsonar.qualitygate.wait=true
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          npx sonar-scanner \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.sources=src \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
