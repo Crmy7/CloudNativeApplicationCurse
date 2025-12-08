@@ -1,3 +1,49 @@
+# Workflow Git et Conventions de Commit
+
+Afin de documenter clairement le fonctionnement du workflow Git mis en place dans le projet, le README a été enrichi avec une section dédiée aux règles de collaboration, aux conventions de commit et aux hooks Husky utilisés pour automatiser la qualité du code.
+
+### Règles Git utilisées
+
+Le projet repose sur une organisation Git stricte et professionnelle.
+Deux branches principales structurent le développement :
+
+* **`main`**, qui contient uniquement du code stable et prêt à être déployé.
+* **`develop`**, qui sert de branche d’intégration continue et reçoit toutes les nouvelles fonctionnalités.
+
+Le développement des fonctionnalités se fait exclusivement via des branches de la forme :
+
+* **`feature/<nom>`**
+
+Chaque nouvelle fonctionnalité doit obligatoirement être intégrée à `develop` via une **Pull Request (PR)**.
+Aucun commit direct n’est autorisé sur les branches `main` et `develop`, afin de garantir un historique propre, contrôlé et vérifié.
+
+---
+
+### Convention de commit
+
+Le projet suit la convention **Conventional Commits**, qui impose un formatage clair et standardisé des messages de commit.
+Cela permet une meilleure lisibilité de l’historique, facilite la génération automatique de changelogs et améliore la communication au sein de l’équipe.
+
+Voici quelques exemples conformes :
+
+* `feat: ajout de l’authentification`
+* `fix: correction de la connexion Postgres`
+* `chore: mise à jour des dépendances NestJS`
+
+Tout message ne respectant pas ce format est automatiquement rejeté grâce au hook `commit-msg`.
+
+---
+
+### Hooks actifs
+
+Deux hooks Husky ont été mis en place pour automatiser la qualité avant chaque commit :
+
+* **`pre-commit`** : ce hook exécute automatiquement les linters du frontend et du backend. Si des erreurs sont détectées, le commit est bloqué, empêchant l’introduction de code non conforme.
+
+* **`commit-msg`** : ce hook vérifie le message de commit à l’aide de Commitlint. Tout message ne respectant pas la convention définie est immédiatement refusé.
+
+---
+
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
