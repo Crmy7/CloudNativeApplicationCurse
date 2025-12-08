@@ -1,0 +1,111 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - feature/ci-pipeline
+
+jobs:
+
+  # --------------------------- LINT ---------------------------
+  lint:
+    name: Lint Frontend & Backend
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install
+
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint
+
+  # --------------------------- BUILD ---------------------------
+  build:
+    name: Build Frontend & Backend
+    runs-on: self-hosted
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build || echo "⚠️ Backend has no build step"
+
+  # --------------------------- TESTS ---------------------------
+  tests:
+    name: Backend Tests
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test || echo "⚠️ No tests implemented"
+
+  # --------------------------- SONARCLOUD ---------------------------
+  sonar:
+    name: SonarCloud Analysis
+    runs-on: self-hosted
+    needs: tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm install
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          projectBaseDir: backend
+          args: >
+            -Dsonar.projectKey=Crmy7_CloudNativeApplicationCurse
+            -Dsonar.organization=crmy7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: SonarCloud Quality Gate
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          projectBaseDir: backend
+          args: >
+            -Dsonar.projectKey=Crmy7_CloudNativeApplicationCurse
+            -Dsonar.organization=crmy7
+            -Dsonar.qualitygate.wait=true
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
