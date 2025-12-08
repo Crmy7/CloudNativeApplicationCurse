@@ -2,7 +2,6 @@
 
 Afin de documenter clairement le fonctionnement du workflow Git mis en place dans le projet, le README a été enrichi avec une section dédiée aux règles de collaboration, aux conventions de commit et aux hooks Husky utilisés pour automatiser la qualité du code.
 
-
 ### Règles Git utilisées
 
 Le projet repose sur une organisation Git stricte et professionnelle.
