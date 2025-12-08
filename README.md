@@ -1,3 +1,97 @@
+# Workflow Git & Conventions de Commit
+
+Cette section décrit le workflow Git utilisé dans le projet, les règles de collaboration, ainsi que les mécanismes automatiques garantissant la qualité du code (Husky + Commitlint).
+
+---
+
+## Workflow Git
+
+Le projet suit une organisation professionnelle inspirée de **GitFlow simplifié**, avec deux branches principales :
+
+* **`main`**
+  Contient uniquement le code **stable**, **validé**, prêt à être déployé.
+
+* **`develop`**
+  Sert de branche d’intégration continue. Toutes les nouvelles fonctionnalités y sont fusionnées après validation.
+
+### Branches de travail
+
+Toute évolution du code doit se faire dans une branche dédiée :
+
+* **`feature/<nom-de-la-feature>`**
+  Exemple : `feature/login-page`, `feature/ci-pipeline`.
+
+👉 **Aucun commit direct n’est autorisé** sur `main` ou `develop`.
+👉 Toute modification passe obligatoirement par une **Pull Request (PR)**.
+
+Les PR sont validées uniquement si :
+
+* ✔ les linters passent
+* ✔ les builds réussissent
+* ✔ les tests réussissent
+* ✔ le Quality Gate SonarCloud est **vert**
+
+Ces règles sont appliquées automatiquement via les protections de branches GitHub.
+
+---
+
+## Conventions de Commit
+
+Les messages de commit doivent respecter la norme **Conventional Commits**, ce qui garantit :
+
+* une meilleure lisibilité de l’historique,
+* une structure cohérente,
+* une automatisation facilitée (ex : changelogs).
+
+Exemples valides :
+
+```
+feat: ajout de l’authentification
+fix: correction de la connexion Postgres
+chore: mise à jour des dépendances
+refactor: simplification du service utilisateur
+```
+
+Toute tentative de commit non conforme est bloquée automatiquement.
+
+---
+
+## Hooks Husky
+
+Deux hooks assurent la qualité du code avant chaque commit :
+
+### `pre-commit`
+
+* Exécute **le lint du frontend et du backend**
+* Bloque le commit si des erreurs sont détectées
+  ➡ Empêche l’introduction de code non conforme dans le repo
+
+### `commit-msg`
+
+* Vérifie automatiquement le message de commit via **Commitlint**
+* Rejette tout message ne respectant pas Conventional Commits
+
+➡ Assure un historique propre, cohérent et professionnel
+
+---
+
+## Badges SonarCloud
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Crmy7_CloudNativeApplicationCurse\&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Crmy7_CloudNativeApplicationCurse)
+
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=Crmy7_CloudNativeApplicationCurse)](https://sonarcloud.io/summary/new_code?id=Crmy7_CloudNativeApplicationCurse)
+
+
+```mermaid
+graph LR
+    A[main] --> B[develop]
+    B --> C[feature/<nom>]
+    C -->|Pull Request| B
+    B -->|Release / Validation| A
+```
+
+---
+
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
@@ -238,3 +332,4 @@ This project is licensed under the MIT License.
 ## Support
 
 For support or questions, please open an issue in the repository.
+

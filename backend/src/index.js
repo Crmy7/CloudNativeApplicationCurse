@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -10,6 +12,10 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const authRoutes = require('./routes/authRoutes');
 
 const app = express();
+
+// Security: prevent Express from exposing its framework header
+app.disable('x-powered-by');
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -36,7 +42,7 @@ app.get('/health', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
