@@ -1,0 +1,112 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ develop ]
+  push:
+    branches: [ feature/ci-pipeline ]
+
+jobs:
+
+  lint:
+    name: Lint frontend & backend
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install frontend
+        working-directory: frontend
+        run: npm install
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Install backend
+        working-directory: backend
+        run: npm install
+
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint
+
+  build:
+    name: Build frontend & backend
+    runs-on: self-hosted
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm install && npm run build
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          npm install
+          if [ -f "package.json" ] && grep -q '"build"' package.json; then
+            npm run build
+          else
+            echo "No backend build script"
+          fi
+
+  tests:
+    name: Run backend tests
+    runs-on: self-hosted
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend
+        working-directory: backend
+        run: npm install
+
+      - name: Run tests
+        working-directory: backend
+        run: npm test
+
+  sonarcloud:
+    name: SonarCloud Quality Analysis
+    runs-on: self-hosted
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Run SonarCloud Scanner
+        working-directory: backend
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          npx sonar-scanner \
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+            -Dsonar.organization=${{ secrets.SONAR_ORG }} \
+            -Dsonar.sources=src \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}

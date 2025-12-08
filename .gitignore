@@ -144,3 +144,5 @@ public/build/
 # Test files
 test-results/
 playwright-report/
+
+actions-runner/

@@ -1,46 +1,94 @@
-# Workflow Git et Conventions de Commit
+# Workflow Git & Conventions de Commit
 
-Afin de documenter clairement le fonctionnement du workflow Git mis en place dans le projet, le README a été enrichi avec une section dédiée aux règles de collaboration, aux conventions de commit et aux hooks Husky utilisés pour automatiser la qualité du code.
-
-### Règles Git utilisées
-
-Le projet repose sur une organisation Git stricte et professionnelle.
-Deux branches principales structurent le développement :
-
-* **`main`**, qui contient uniquement du code stable et prêt à être déployé.
-* **`develop`**, qui sert de branche d’intégration continue et reçoit toutes les nouvelles fonctionnalités.
-
-Le développement des fonctionnalités se fait exclusivement via des branches de la forme :
-
-* **`feature/<nom>`**
-
-Chaque nouvelle fonctionnalité doit obligatoirement être intégrée à `develop` via une **Pull Request (PR)**.
-Aucun commit direct n’est autorisé sur les branches `main` et `develop`, afin de garantir un historique propre, contrôlé et vérifié.
+Cette section décrit le workflow Git utilisé dans le projet, les règles de collaboration, ainsi que les mécanismes automatiques garantissant la qualité du code (Husky + Commitlint).
 
 ---
 
-### Convention de commit
+## Workflow Git
 
-Le projet suit la convention **Conventional Commits**, qui impose un formatage clair et standardisé des messages de commit.
-Cela permet une meilleure lisibilité de l’historique, facilite la génération automatique de changelogs et améliore la communication au sein de l’équipe.
+Le projet suit une organisation professionnelle inspirée de **GitFlow simplifié**, avec deux branches principales :
 
-Voici quelques exemples conformes :
+* **`main`**
+  Contient uniquement le code **stable**, **validé**, prêt à être déployé.
 
-* `feat: ajout de l’authentification`
-* `fix: correction de la connexion Postgres`
-* `chore: mise à jour des dépendances NestJS`
+* **`develop`**
+  Sert de branche d’intégration continue. Toutes les nouvelles fonctionnalités y sont fusionnées après validation.
 
-Tout message ne respectant pas ce format est automatiquement rejeté grâce au hook `commit-msg`.
+### Branches de travail
+
+Toute évolution du code doit se faire dans une branche dédiée :
+
+* **`feature/<nom-de-la-feature>`**
+  Exemple : `feature/login-page`, `feature/ci-pipeline`.
+
+👉 **Aucun commit direct n’est autorisé** sur `main` ou `develop`.
+👉 Toute modification passe obligatoirement par une **Pull Request (PR)**.
+
+Les PR sont validées uniquement si :
+
+* ✔ les linters passent
+* ✔ les builds réussissent
+* ✔ les tests réussissent
+* ✔ le Quality Gate SonarCloud est **vert**
+
+Ces règles sont appliquées automatiquement via les protections de branches GitHub.
 
 ---
 
-### Hooks actifs
+## Conventions de Commit
 
-Deux hooks Husky ont été mis en place pour automatiser la qualité avant chaque commit :
+Les messages de commit doivent respecter la norme **Conventional Commits**, ce qui garantit :
 
-* **`pre-commit`** : ce hook exécute automatiquement les linters du frontend et du backend. Si des erreurs sont détectées, le commit est bloqué, empêchant l’introduction de code non conforme.
+* une meilleure lisibilité de l’historique,
+* une structure cohérente,
+* une automatisation facilitée (ex : changelogs).
 
-* **`commit-msg`** : ce hook vérifie le message de commit à l’aide de Commitlint. Tout message ne respectant pas la convention définie est immédiatement refusé.
+Exemples valides :
+
+```
+feat: ajout de l’authentification
+fix: correction de la connexion Postgres
+chore: mise à jour des dépendances
+refactor: simplification du service utilisateur
+```
+
+Toute tentative de commit non conforme est bloquée automatiquement.
+
+---
+
+## Hooks Husky
+
+Deux hooks assurent la qualité du code avant chaque commit :
+
+### `pre-commit`
+
+* Exécute **le lint du frontend et du backend**
+* Bloque le commit si des erreurs sont détectées
+  ➡ Empêche l’introduction de code non conforme dans le repo
+
+### `commit-msg`
+
+* Vérifie automatiquement le message de commit via **Commitlint**
+* Rejette tout message ne respectant pas Conventional Commits
+
+➡ Assure un historique propre, cohérent et professionnel
+
+---
+
+## Badges SonarCloud
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Crmy7_CloudNativeApplicationCurse\&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Crmy7_CloudNativeApplicationCurse)
+
+[![Quality gate](https://sonarcloud.io/api/project_badges/quality_gate?project=Crmy7_CloudNativeApplicationCurse)](https://sonarcloud.io/summary/new_code?id=Crmy7_CloudNativeApplicationCurse)
+
+
+```mermaid
+graph LR
+    A[main] --> B[develop]
+    B --> C[feature/<nom>]
+    C -->|Pull Request| B
+    B -->|Release / Validation| A
+```
 
 ---
 
@@ -284,3 +332,4 @@ This project is licensed under the MIT License.
 ## Support
 
 For support or questions, please open an issue in the repository.
+
