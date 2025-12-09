@@ -109,11 +109,52 @@ jobs:
       # 🔍 Healthcheck backend
       # -------------------------
       - name: Test backend image
+        env:
+          DATABASE_URL: postgresql://ci_user:ci_password@ci-postgres:5432/gym_management
         run: |
-          container=$(docker run -d -p 3009:3000 backend-ci)
-          sleep 5
+          set -euo pipefail
+
+          NETWORK="ci-health-net"
+          POSTGRES="ci-postgres"
+          container=""
+
+          cleanup() {
+            if [ -n "$container" ]; then
+              docker rm -f "$container" >/dev/null 2>&1 || true
+            fi
+            docker rm -f "$POSTGRES" >/dev/null 2>&1 || true
+            docker network rm "$NETWORK" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker network create "$NETWORK"
+
+          docker run -d \
+            --name "$POSTGRES" \
+            --network "$NETWORK" \
+            -e POSTGRES_USER=ci_user \
+            -e POSTGRES_PASSWORD=ci_password \
+            -e POSTGRES_DB=gym_management \
+            postgres:16-alpine >/dev/null
+
+          echo "Waiting for Postgres to be ready..."
+          for _ in $(seq 1 20); do
+            if docker exec "$POSTGRES" pg_isready -U ci_user -d gym_management >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+
+          container=$(docker run -d \
+            --network "$NETWORK" \
+            -p 3009:3000 \
+            -e DATABASE_URL="$DATABASE_URL" \
+            backend-ci)
+
+          echo "Waiting for backend container ($container) to boot..."
+          sleep 10
+
           curl -f http://localhost:3009/health
-          docker stop $container
 
       # -------------------------
       # 🏷 Tag images (GHCR requires lowercase)
