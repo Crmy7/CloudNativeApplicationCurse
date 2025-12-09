@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ feature/ci-pipeline ]
+    branches: [ feature/docker ]   # Branche Docker
 
 jobs:
 
@@ -55,7 +55,7 @@ jobs:
         working-directory: backend
         run: |
           npm install
-          if [ -f "package.json" ] && grep -q '"build"' package.json; then
+          if grep -q '"build"' package.json; then
             npm run build
           else
             echo "No backend build script"
@@ -81,10 +81,62 @@ jobs:
         working-directory: backend
         run: npm test
 
+  docker:
+    name: Build & Push Docker Images
+    runs-on: self-hosted
+    needs: tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # -------------------------
+      # 🔐 Login to GHCR
+      # -------------------------
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
+
+      # -------------------------
+      # 🛠 Build Docker images
+      # -------------------------
+      - name: Build backend image
+        run: docker build -t backend-ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t frontend-ci ./frontend
+
+      # -------------------------
+      # 🔍 Healthcheck backend
+      # -------------------------
+      - name: Test backend image
+        run: |
+          container=$(docker run -d -p 3009:3000 backend-ci)
+          sleep 5
+          curl -f http://localhost:3009/health
+          docker stop $container
+
+      # -------------------------
+      # 🏷 Tag images (GHCR requires lowercase)
+      # -------------------------
+      - name: Tag backend image
+        run: docker tag backend-ci ghcr.io/crmy7/cloudnative-backend:${{ github.sha }}
+
+      - name: Tag frontend image
+        run: docker tag frontend-ci ghcr.io/crmy7/cloudnative-frontend:${{ github.sha }}
+
+      # -------------------------
+      # 🚀 Push images
+      # -------------------------
+      - name: Push backend
+        run: docker push ghcr.io/crmy7/cloudnative-backend:${{ github.sha }}
+
+      - name: Push frontend
+        run: docker push ghcr.io/crmy7/cloudnative-frontend:${{ github.sha }}
+
   sonarcloud:
     name: SonarCloud Quality Analysis
     runs-on: self-hosted
-    needs: tests
+    needs: docker
     steps:
       - uses: actions/checkout@v4
         with:

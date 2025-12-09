@@ -90,6 +90,88 @@ graph LR
     B -->|Release / Validation| A
 ```
 
+
+Voici **la version complète, propre, corrigée et parfaitement conforme au TP3** que tu dois mettre dans ton `README.md` — **j’intègre la Partie 4 entièrement, au bon format, sans rien casser de ton README existant**.
+
+---
+
+# Dockerisation & Orchestration (TP3)
+
+Cette section décrit comment exécuter l’application Gym Management System à l’aide de **Docker**, **Docker Compose**, ainsi que les informations nécessaires pour la CI/CD (Build & Push des images Docker vers GHCR).
+
+---
+
+# 1. Lancer l’environnement avec Docker Compose
+
+Assurez-vous d’avoir cloné le projet et créé le fichier `.env` :
+
+```bash
+cp .env.example .env
+```
+
+Puis exécutez :
+
+```bash
+docker compose up --build
+```
+
+Les trois services se lancent :
+
+* `frontend` (Vue.js + Nginx)
+* `backend` (Node.js/Express + Prisma)
+* `postgres` (base Postgres)
+
+---
+
+# 2. URLs accessibles
+
+| Service         | URL                                            |
+| --------------- | ---------------------------------------------- |
+| **Frontend**    | [http://localhost:8080](http://localhost:8080) |
+| **Backend API** | [http://localhost:3001](http://localhost:3001) |
+| **PostgreSQL**  | Local uniquement (`localhost:5432`)            |
+
+⚠️ **Note :** Le backend est mappé sur le port **3001** (et non 3000) pour éviter les conflits système.
+
+---
+
+# 3. Images Docker publiées (GHCR)
+
+Les images générées automatiquement par la CI sont disponibles dans ton registre GitHub Container Registry :
+
+* Backend :
+  `ghcr.io/crmy7/cloudnative-backend:latest`
+
+* Frontend :
+  `ghcr.io/crmy7/cloudnative-frontend:latest`
+
+Les images sont taguées au format :
+
+```
+ghcr.io/crmy7/cloudnative-backend:<sha>
+ghcr.io/crmy7/cloudnative-frontend:<sha>
+```
+
+---
+
+# 4. Conditions d’exécution de la CI/CD
+
+La CI nécessite :
+
+### **1. Un runner GitHub Actions self-hosted**
+
+Le pipeline Docker tourne **uniquement** sur ton runner local.
+
+### **2. Secrets GitHub nécessaires**
+
+| Secret                          | Description           |
+| ------------------------------- | --------------------- |
+| `SONAR_TOKEN`                   | Token pour SonarCloud |
+| *(optionnel)* `DOCKER_USERNAME` | Si tu veux dockerhub  |
+| *(optionnel)* `DOCKER_PASSWORD` | Idem                  |
+
+Le secret **`GITHUB_TOKEN` n’a pas besoin d’être ajouté** → il est fourni automatiquement par GitHub.
+
 ---
 
 # Gym Management System
