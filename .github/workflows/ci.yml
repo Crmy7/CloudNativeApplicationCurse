@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ feature/docker, feature/auto-deploy-local-ci, main ]
+    branches: [ develop, feature/docker, feature/auto-deploy-local-ci, main ]
 
 jobs:
 
