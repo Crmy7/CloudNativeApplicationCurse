@@ -25,10 +25,11 @@ COPY --from=build /app/package*.json ./
 COPY --from=build /app/prisma ./prisma
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN chown -R appuser:appgroup /app
+RUN mkdir -p /app/.npm && chown -R appuser:appgroup /app
 USER appuser
 
 ENV NODE_ENV=production
+ENV NPM_CONFIG_CACHE=/app/.npm
 EXPOSE 3000
 
 CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
