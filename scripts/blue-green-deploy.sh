@@ -15,6 +15,10 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
+# Arreter l'ancien stack (TP4) s'il tourne encore
+echo ">> Nettoyage de l'ancien stack..."
+docker compose -f docker-compose.yml down 2>/dev/null || true
+
 # Determiner la couleur active
 if grep -q "backend-blue" nginx/active.conf 2>/dev/null; then
   ACTIVE="blue"
