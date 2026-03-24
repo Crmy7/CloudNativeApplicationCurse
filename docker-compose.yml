@@ -1,4 +1,27 @@
 services:
+  traefik:
+    image: traefik:v3.4
+    container_name: cloudnative-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--accesslog=true"
+      - "--accesslog.format=json"
+      - "--log.level=INFO"
+      - "--log.format=json"
+    ports:
+      - "80:80"
+      - "8888:8080"
+    volumes:
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    networks:
+      - front_net
+      - back_net
+
   postgres:
     image: postgres:16-alpine
     container_name: cloudnative-postgres
@@ -10,7 +33,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - cloudnet
+      - back_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
@@ -19,7 +42,6 @@ services:
 
   backend:
     build: ./backend
-    container_name: cloudnative-backend
     restart: unless-stopped
     env_file: .env
     environment:
@@ -30,28 +52,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "3001:3000"
     networks:
-      - cloudnet
+      - back_net
 
   frontend:
     build: ./frontend
-    container_name: cloudnative-frontend
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - "8080:80"
     networks:
-      - cloudnet
+      - front_net
 
-# Réseau interne partagé
 networks:
-  cloudnet:
+  front_net:
+    driver: bridge
+  back_net:
     driver: bridge
 
-# Volume Postgres
 volumes:
   postgres_data:
     driver: local

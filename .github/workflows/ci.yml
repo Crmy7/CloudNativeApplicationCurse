@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ feature/docker ]   # Branche Docker
+    branches: [ feature/docker, main ]
 
 jobs:
 
@@ -41,7 +41,7 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -81,103 +81,85 @@ jobs:
         working-directory: backend
         run: npm test
 
-  docker:
-    name: Build & Push Docker Images
+  docker-build:
+    name: Build Docker Images
     runs-on: self-hosted
     needs: tests
-
     steps:
       - uses: actions/checkout@v4
 
-      # -------------------------
-      # 🔐 Login to GHCR
-      # -------------------------
-      - name: Login to GHCR
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
-
-      # -------------------------
-      # 🛠 Build Docker images
-      # -------------------------
       - name: Build backend image
         run: docker build -t backend-ci ./backend
 
       - name: Build frontend image
         run: docker build -t frontend-ci ./frontend
 
-      # -------------------------
-      # 🔍 Healthcheck backend
-      # -------------------------
-      - name: Test backend image
-        env:
-          DATABASE_URL: postgresql://ci_user:ci_password@ci-postgres:5432/gym_management
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: self-hosted
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start CI stack
+        run: docker compose -f docker-compose.ci.yaml up -d --build --wait
+        timeout-minutes: 5
+
+      - name: Wait for services to be ready
+        run: sleep 15
+
+      - name: Test /health endpoint
+        run: curl -f http://localhost:3009/health
+
+      - name: Test /whoami endpoint
+        run: curl -f http://localhost:3009/whoami
+
+      - name: Test frontend responds
+        run: curl -f http://localhost:8089
+
+      - name: Stop CI stack
+        if: always()
+        run: docker compose -f docker-compose.ci.yaml down -v
+
+  publish:
+    name: Push Docker Images to GHCR
+    runs-on: self-hosted
+    needs: smoke-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
         run: |
-          set -euo pipefail
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
 
-          NETWORK="ci-health-net"
-          POSTGRES="ci-postgres"
-          container=""
+      - name: Build backend image
+        run: docker build -t backend-ci ./backend
 
-          cleanup() {
-            if [ -n "$container" ]; then
-              docker rm -f "$container" >/dev/null 2>&1 || true
-            fi
-            docker rm -f "$POSTGRES" >/dev/null 2>&1 || true
-            docker network rm "$NETWORK" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
+      - name: Build frontend image
+        run: docker build -t frontend-ci ./frontend
 
-          docker network create "$NETWORK"
-
-          docker run -d \
-            --name "$POSTGRES" \
-            --network "$NETWORK" \
-            -e POSTGRES_USER=ci_user \
-            -e POSTGRES_PASSWORD=ci_password \
-            -e POSTGRES_DB=gym_management \
-            postgres:16-alpine >/dev/null
-
-          echo "Waiting for Postgres to be ready..."
-          for _ in $(seq 1 20); do
-            if docker exec "$POSTGRES" pg_isready -U ci_user -d gym_management >/dev/null 2>&1; then
-              break
-            fi
-            sleep 2
-          done
-
-          container=$(docker run -d \
-            --network "$NETWORK" \
-            -p 3009:3000 \
-            -e DATABASE_URL="$DATABASE_URL" \
-            backend-ci)
-
-          echo "Waiting for backend container ($container) to boot..."
-          sleep 10
-
-          curl -f http://localhost:3009/health
-
-      # -------------------------
-      # 🏷 Tag images (GHCR requires lowercase)
-      # -------------------------
-      - name: Tag backend image
+      - name: Tag backend image (SHA)
         run: docker tag backend-ci ghcr.io/crmy7/cloudnative-backend:${{ github.sha }}
 
-      - name: Tag frontend image
+      - name: Tag frontend image (SHA)
         run: docker tag frontend-ci ghcr.io/crmy7/cloudnative-frontend:${{ github.sha }}
 
-      # -------------------------
-      # 🚀 Push images
-      # -------------------------
+      - name: Tag latest (main branch only)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag backend-ci ghcr.io/crmy7/cloudnative-backend:latest
+          docker tag frontend-ci ghcr.io/crmy7/cloudnative-frontend:latest
+
       - name: Push backend
-        run: docker push ghcr.io/crmy7/cloudnative-backend:${{ github.sha }}
+        run: docker push --all-tags ghcr.io/crmy7/cloudnative-backend
 
       - name: Push frontend
-        run: docker push ghcr.io/crmy7/cloudnative-frontend:${{ github.sha }}
+        run: docker push --all-tags ghcr.io/crmy7/cloudnative-frontend
 
   sonarcloud:
     name: SonarCloud Quality Analysis
     runs-on: self-hosted
-    needs: docker
+    needs: publish
     steps:
       - uses: actions/checkout@v4
         with:

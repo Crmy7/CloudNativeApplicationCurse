@@ -2,6 +2,8 @@
 
 const express = require('express');
 const cors = require('cors');
+const os = require('os');
+const pino = require('pino');
 require('dotenv').config();
 
 const userRoutes = require('./routes/userRoutes');
@@ -11,12 +13,33 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const authRoutes = require('./routes/authRoutes');
 
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined
+});
+
 const app = express();
 
 // Security: prevent Express from exposing its framework header
 app.disable('x-powered-by');
 
 const PORT = process.env.PORT || 3000;
+const HOSTNAME = process.env.HOSTNAME || os.hostname();
+
+// Structured logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    logger.info({
+      method: req.method,
+      url: req.originalUrl,
+      statusCode: res.statusCode,
+      duration: Date.now() - start,
+      hostname: HOSTNAME
+    });
+  });
+  next();
+});
 
 // Middleware
 app.use(cors({
@@ -36,12 +59,17 @@ app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ status: 'OK', hostname: HOSTNAME, timestamp: new Date().toISOString() });
+});
+
+// Whoami - returns hostname for load balancing verification
+app.get('/whoami', (req, res) => {
+  res.json({ hostname: HOSTNAME, platform: os.platform(), uptime: process.uptime() });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error({ err, hostname: HOSTNAME }, 'Unhandled error');
   res.status(500).json({
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
@@ -54,6 +82,5 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info({ port: PORT, hostname: HOSTNAME, env: process.env.NODE_ENV || 'development' }, 'Server started');
 });
