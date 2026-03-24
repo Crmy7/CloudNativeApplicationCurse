@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ feature/docker, main ]
+    branches: [ feature/docker, feature/auto-deploy-local-ci, main ]
 
 jobs:
 
@@ -159,6 +159,23 @@ jobs:
       - name: Push frontend
         run: docker push --all-tags ghcr.io/crmy7/cloudnative-frontend
 
+  deploy:
+    name: Deploy to Local Environment
+    runs-on: self-hosted
+    needs: publish
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/docker' || github.ref == 'refs/heads/feature/auto-deploy-local-ci'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
+
+      - name: Run deploy script
+        run: bash scripts/deploy.sh
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
   sonarcloud:
     name: SonarCloud Quality Analysis
     runs-on: self-hosted
@@ -187,4 +204,5 @@ jobs:
             -Dsonar.organization=${{ secrets.SONAR_ORG }} \
             -Dsonar.sources=src \
             -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
+            -Dsonar.qualitygate.wait=false

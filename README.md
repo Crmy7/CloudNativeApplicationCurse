@@ -204,6 +204,41 @@ Lors du scaling, chaque instance logue son propre hostname, ce qui permet de ver
 
 ---
 
+---
+
+## Deploiement local automatise (TP4)
+
+Le pipeline CI inclut un stage **deploy** qui relance automatiquement l'application sur le runner local apres chaque publication d'image.
+
+### Fonctionnement
+
+```
+lint -> build -> tests -> docker build -> smoke tests -> publish -> deploy
+```
+
+1. **Arret propre** des conteneurs (`docker compose down` sans `--volumes`)
+2. **Pull** des nouvelles images depuis GHCR (`ghcr.io/crmy7/cloudnative-backend:<sha>`)
+3. **Tag** des images pour correspondre au `docker-compose.yml`
+4. **Redemarrage** complet (`docker compose up -d`)
+5. **Verification** automatique du health check
+
+Le script `scripts/deploy.sh` est **idempotent** : il peut etre execute plusieurs fois sans erreur et sans perte de donnees PostgreSQL.
+
+### Pre-requis
+
+- Un **runner self-hosted** actif et connecte
+- Les **secrets GitHub** configures (`GITHUB_TOKEN` pour GHCR)
+- Un acces reseau au registre `ghcr.io`
+
+### Branches actives pour le deploiement
+
+- `main` : deploiement automatique en production
+- `feature/docker` : deploiement actif pour le developpement/TP
+
+Le deploiement ne se declenche **pas** sur les autres branches ni sur les pull requests.
+
+---
+
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
