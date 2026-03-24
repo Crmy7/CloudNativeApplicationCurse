@@ -184,6 +184,23 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
+  deploy:
+    name: Deploy to Local Environment
+    runs-on: self-hosted
+    needs: publish
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/docker' || github.ref == 'refs/heads/feature/auto-deploy-local-ci'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
+
+      - name: Run deploy script
+        run: bash scripts/deploy.sh
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
   sonarcloud:
     name: SonarCloud Quality Analysis
     runs-on: self-hosted
