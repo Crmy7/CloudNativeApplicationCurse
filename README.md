@@ -239,6 +239,74 @@ Le deploiement ne se declenche **pas** sur les autres branches ni sur les pull r
 
 ---
 
+## Deploiement Blue/Green (TP5)
+
+Strategie de deploiement sans coupure avec bascule instantanee et rollback immediat.
+
+### Principe
+
+```
+[Client] --> :80 [Nginx Reverse Proxy] --> [Blue]   (version active)
+                                       \-> [Green]  (version candidate)
+
+             [PostgreSQL] <--- partage entre blue et green
+```
+
+- **Blue** = version actuellement en production
+- **Green** = nouvelle version a deployer (ou inverse)
+- Le reverse proxy Nginx route le trafic vers la version active
+- La base PostgreSQL est **unique et partagee**
+
+### Architecture des fichiers
+
+| Fichier                    | Contenu                          |
+| -------------------------- | -------------------------------- |
+| `docker-compose.base.yml`  | PostgreSQL + Nginx reverse proxy |
+| `docker-compose.blue.yml`  | backend-blue + frontend-blue     |
+| `docker-compose.green.yml` | backend-green + frontend-green   |
+| `nginx/blue.conf`          | Upstream pointant vers blue      |
+| `nginx/green.conf`         | Upstream pointant vers green     |
+| `nginx/active.conf`        | Copie de la couleur active       |
+
+### Deroulement d'un deploiement
+
+1. **Build + push** de la nouvelle image vers GHCR
+2. **Detection** de la couleur active (lecture de `nginx/active.conf`)
+3. **Deploiement** de la nouvelle version sur la couleur **inactive**
+4. **Verification** que la nouvelle version repond (health check interne)
+5. **Bascule** du proxy : copie du fichier de config + `nginx -s reload`
+6. **Verification** via le proxy (health check public)
+
+L'ancienne version reste active et accessible pour un rollback immediat.
+
+### Rollback
+
+```bash
+cp nginx/<ancienne_couleur>.conf nginx/active.conf
+docker compose -f docker-compose.base.yml exec reverse-proxy nginx -s reload
+```
+
+Le rollback prend moins de 2 secondes.
+
+### Commandes manuelles
+
+```bash
+# Demarrer l'infra + blue
+docker compose -f docker-compose.base.yml -f docker-compose.blue.yml up -d
+
+# Deployer green
+docker compose -f docker-compose.base.yml -f docker-compose.green.yml up -d
+
+# Basculer vers green
+cp nginx/green.conf nginx/active.conf
+docker compose -f docker-compose.base.yml exec reverse-proxy nginx -s reload
+```
+
+### Activation dans la CI
+
+Le stage `Blue/Green Deploy` est execute automatiquement apres le push des images, uniquement sur la branche `main`.
+
+---
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
