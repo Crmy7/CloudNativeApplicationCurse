@@ -153,11 +153,19 @@ jobs:
           docker tag backend-ci ghcr.io/crmy7/cloudnative-backend:latest
           docker tag frontend-ci ghcr.io/crmy7/cloudnative-frontend:latest
 
-      - name: Push backend
-        run: docker push --all-tags ghcr.io/crmy7/cloudnative-backend
+      - name: Push backend (SHA)
+        run: docker push ghcr.io/crmy7/cloudnative-backend:${{ github.sha }}
 
-      - name: Push frontend
-        run: docker push --all-tags ghcr.io/crmy7/cloudnative-frontend
+      - name: Push backend (latest)
+        if: github.ref == 'refs/heads/main'
+        run: docker push ghcr.io/crmy7/cloudnative-backend:latest
+
+      - name: Push frontend (SHA)
+        run: docker push ghcr.io/crmy7/cloudnative-frontend:${{ github.sha }}
+
+      - name: Push frontend (latest)
+        if: github.ref == 'refs/heads/main'
+        run: docker push ghcr.io/crmy7/cloudnative-frontend:latest
 
   deploy:
     name: Deploy to Local Environment
