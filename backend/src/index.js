@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const os = require('os');
 const pino = require('pino');
+const promClient = require('prom-client');
 require('dotenv').config();
 
 const userRoutes = require('./routes/userRoutes');
@@ -18,6 +19,23 @@ const logger = pino({
   transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined
 });
 
+// Prometheus metrics setup
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+collectDefaultMetrics({ prefix: 'gym_backend_' });
+
+const httpRequestDuration = new promClient.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 1, 2, 5]
+});
+
+const httpRequestsTotal = new promClient.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
+
 const app = express();
 
 // Security: prevent Express from exposing its framework header
@@ -25,6 +43,23 @@ app.disable('x-powered-by');
 
 const PORT = process.env.PORT || 3000;
 const HOSTNAME = process.env.HOSTNAME || os.hostname();
+
+// Prometheus metrics endpoint (before other middleware to avoid measuring itself)
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', promClient.register.contentType);
+  res.end(await promClient.register.metrics());
+});
+
+// Prometheus request tracking middleware
+app.use((req, res, next) => {
+  const end = httpRequestDuration.startTimer();
+  res.on('finish', () => {
+    const route = req.route ? req.route.path : req.path;
+    end({ method: req.method, route, status_code: res.statusCode });
+    httpRequestsTotal.inc({ method: req.method, route, status_code: res.statusCode });
+  });
+  next();
+});
 
 // Structured logging middleware
 app.use((req, res, next) => {

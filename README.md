@@ -307,6 +307,53 @@ docker compose -f docker-compose.base.yml exec reverse-proxy nginx -s reload
 Le stage `Blue/Green Deploy` est execute automatiquement apres le push des images, uniquement sur la branche `main`.
 
 ---
+
+## Monitoring & Observabilite (TP6)
+
+Stack d'observabilite complete avec **Prometheus**, **Grafana**, **Loki** et **Promtail**.
+
+### Lancer la stack monitoring
+
+```bash
+# 1. Demarrer l'application (blue/green)
+cp .env.example .env
+docker compose -f docker-compose.base.yml -f docker-compose.blue.yml up -d
+
+# 2. Demarrer la stack monitoring
+docker compose -f docker-compose.monitoring.yml up -d
+```
+
+### URLs
+
+| Service        | URL                      |
+| -------------- | ------------------------ |
+| Grafana        | http://localhost:3000     |
+| Prometheus     | http://localhost:9090     |
+| Metriques      | http://localhost/metrics  |
+
+### Metriques exposees
+
+Le backend expose `/metrics` avec `prom-client` :
+- `http_requests_total` : compteur par methode/route/status
+- `http_request_duration_seconds` : histogramme de latence
+- Metriques Node.js par defaut (CPU, memoire, event loop)
+
+### Dashboards Grafana
+
+Deux dashboards provisionnes automatiquement :
+1. **Backend Metrics** : requetes/s, latence p50/p95/p99, erreurs, memoire, CPU, uptime
+2. **Logs Correles** : logs backend, volume par service, erreurs, latence + erreurs correlees
+
+### Arret de la stack monitoring
+
+```bash
+docker compose -f docker-compose.monitoring.yml down -v
+```
+
+Documentation complete : voir `MONITORING.md`
+
+---
+
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
