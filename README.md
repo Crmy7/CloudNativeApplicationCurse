@@ -307,7 +307,6 @@ docker compose -f docker-compose.base.yml exec reverse-proxy nginx -s reload
 Le stage `Blue/Green Deploy` est execute automatiquement apres le push des images, uniquement sur la branche `main`.
 
 ---
-
 # Gym Management System
 
 A complete fullstack gym management application built with modern web technologies.
