@@ -91,86 +91,116 @@ graph LR
 ```
 
 
-Voici **la version complète, propre, corrigée et parfaitement conforme au TP3** que tu dois mettre dans ton `README.md` — **j’intègre la Partie 4 entièrement, au bon format, sans rien casser de ton README existant**.
+---
+
+# Dockerisation avancee & Orchestration (TP3 Bis)
+
+Architecture cloud-native complete avec **Traefik** comme API Gateway, **multi-reseaux**, **scaling**, **logs structures** et **CI/CD automatisee**.
 
 ---
 
-# Dockerisation & Orchestration (TP3)
+## Architecture
 
-Cette section décrit comment exécuter l’application Gym Management System à l’aide de **Docker**, **Docker Compose**, ainsi que les informations nécessaires pour la CI/CD (Build & Push des images Docker vers GHCR).
+```
+                    :80 (HTTP)
+                        |
+                    [ Traefik ]  (:8080 dashboard)
+                    /         \
+              front_net      back_net
+                 |              |
+            [ Frontend ]   [ Backend x N ]
+             (Nginx)       (Node.js/Express)
+                                |
+                           [ PostgreSQL ]
+```
+
+* **Traefik** : point d’entree unique, load balancer, routing `/` et `/api`
+* **Frontend** : Vue.js compile, servi par Nginx
+* **Backend** : Node.js + Prisma, multi-stage, non-root, scalable
+* **PostgreSQL** : base persistante avec volume nomme
 
 ---
 
-# 1. Lancer l’environnement avec Docker Compose
-
-Assurez-vous d’avoir cloné le projet et créé le fichier `.env` :
+## Lancer l’environnement
 
 ```bash
 cp .env.example .env
-```
-
-Puis exécutez :
-
-```bash
 docker compose up --build
 ```
 
-Les trois services se lancent :
+Scaling du backend (load balancing automatique via Traefik) :
 
-* `frontend` (Vue.js + Nginx)
-* `backend` (Node.js/Express + Prisma)
-* `postgres` (base Postgres)
-
----
-
-# 2. URLs accessibles
-
-| Service         | URL                                            |
-| --------------- | ---------------------------------------------- |
-| **Frontend**    | [http://localhost:8080](http://localhost:8080) |
-| **Backend API** | [http://localhost:3001](http://localhost:3001) |
-| **PostgreSQL**  | Local uniquement (`localhost:5432`)            |
-
-⚠️ **Note :** Le backend est mappé sur le port **3001** (et non 3000) pour éviter les conflits système.
-
----
-
-# 3. Images Docker publiées (GHCR)
-
-Les images générées automatiquement par la CI sont disponibles dans ton registre GitHub Container Registry :
-
-* Backend :
-  `ghcr.io/crmy7/cloudnative-backend:latest`
-
-* Frontend :
-  `ghcr.io/crmy7/cloudnative-frontend:latest`
-
-Les images sont taguées au format :
-
-```
-ghcr.io/crmy7/cloudnative-backend:<sha>
-ghcr.io/crmy7/cloudnative-frontend:<sha>
+```bash
+docker compose up --build --scale backend=3
 ```
 
 ---
 
-# 4. Conditions d’exécution de la CI/CD
+## URLs accessibles
 
-La CI nécessite :
+| Service              | URL                       |
+| -------------------- | ------------------------- |
+| **Frontend**         | http://localhost           |
+| **Backend API**      | http://localhost/api       |
+| **Health check**     | http://localhost/health    |
+| **Whoami (LB test)** | http://localhost/whoami    |
+| **Traefik Dashboard**| http://localhost:8080      |
+| **PostgreSQL**       | Reseau interne uniquement |
 
-### **1. Un runner GitHub Actions self-hosted**
+---
 
-Le pipeline Docker tourne **uniquement** sur ton runner local.
+## Reseaux Docker
 
-### **2. Secrets GitHub nécessaires**
+| Service   | Reseaux              |
+| --------- | -------------------- |
+| frontend  | `front_net`          |
+| backend   | `back_net`           |
+| traefik   | `front_net` + `back_net` |
+| postgres  | `back_net` uniquement|
 
-| Secret                          | Description           |
-| ------------------------------- | --------------------- |
-| `SONAR_TOKEN`                   | Token pour SonarCloud |
-| *(optionnel)* `DOCKER_USERNAME` | Si tu veux dockerhub  |
-| *(optionnel)* `DOCKER_PASSWORD` | Idem                  |
+Aucun port individuel expose sauf Traefik (:80 et :8080).
 
-Le secret **`GITHUB_TOKEN` n’a pas besoin d’être ajouté** → il est fourni automatiquement par GitHub.
+---
+
+## Images Docker publiees (GHCR)
+
+* Backend : `ghcr.io/crmy7/cloudnative-backend:<sha>`
+* Frontend : `ghcr.io/crmy7/cloudnative-frontend:<sha>`
+* Tag `latest` applique uniquement sur la branche `main`
+
+---
+
+## Pipeline CI/CD
+
+Le pipeline s’execute sur un **runner self-hosted** et comprend :
+
+1. **Lint** : ESLint frontend + backend
+2. **Build** : Compilation frontend + backend
+3. **Tests** : Tests unitaires backend
+4. **Docker Build** : Construction des images Docker
+5. **Smoke Tests** : Stack CI complete (`docker-compose.ci.yaml`), tests `/health` et `/whoami`
+6. **Publish** : Push des images vers GHCR (tag SHA + latest sur main)
+7. **SonarCloud** : Analyse qualite
+
+### Secrets GitHub necessaires
+
+| Secret             | Description              |
+| ------------------ | ------------------------ |
+| `GITHUB_TOKEN`     | Fourni automatiquement   |
+| `SONAR_TOKEN`      | Token SonarCloud         |
+| `SONAR_PROJECT_KEY`| Cle du projet SonarCloud |
+| `SONAR_ORG`        | Organisation SonarCloud  |
+
+---
+
+## Logs structures
+
+Le backend utilise **pino** pour des logs JSON structures incluant :
+- timestamp, methode HTTP, endpoint, code retour, duree, hostname
+
+Traefik produit egalement des access logs au format JSON.
+
+Lors du scaling, chaque instance logue son propre hostname, ce qui permet de verifier le round-robin.
 
 ---
 
