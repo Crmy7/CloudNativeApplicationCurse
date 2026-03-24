@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop, main ]
   push:
-    branches: [ develop, feature/docker, feature/auto-deploy-local-ci, feature/blue-green-proxy-deployment, main ]
+    branches: [ develop, feature/docker, feature/auto-deploy-local-ci, feature/blue-green-proxy-deployment, feature/monitoring, main ]
 
 jobs:
 
