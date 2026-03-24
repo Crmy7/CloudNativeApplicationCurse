@@ -1,0 +1,31 @@
+services:
+  backend-green:
+    image: ghcr.io/crmy7/cloudnative-backend:${DEPLOY_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-gym_management}?schema=public
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: http://localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - back_net
+
+  frontend-green:
+    image: ghcr.io/crmy7/cloudnative-frontend:${DEPLOY_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend-green
+    networks:
+      - front_net
+      - back_net
+
+networks:
+  front_net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-cloudnative}_front_net
+  back_net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-cloudnative}_back_net
