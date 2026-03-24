@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop, main ]
   push:
-    branches: [ develop, feature/docker, feature/auto-deploy-local-ci, feature/blue-green-proxy-deployment, main ]
+    branches: [ develop, feature/docker, feature/auto-deploy-local-ci, feature/blue-green-proxy-deployment, feature/monitoring, main ]
 
 jobs:
 
@@ -181,6 +181,23 @@ jobs:
 
       - name: Run blue/green deploy script
         run: bash scripts/blue-green-deploy.sh
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+  deploy-local:
+    name: Deploy to Local Environment
+    runs-on: self-hosted
+    needs: publish
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/docker' || github.ref == 'refs/heads/feature/auto-deploy-local-ci'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u crmy7 --password-stdin
+
+      - name: Run deploy script
+        run: bash scripts/deploy.sh
         env:
           GITHUB_SHA: ${{ github.sha }}
 
