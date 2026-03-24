@@ -7,6 +7,12 @@ TAG="${GITHUB_SHA:-latest}"
 echo "=== Deploiement automatique ==="
 echo "Tag: $TAG"
 
+# Creer le .env s'il n'existe pas
+if [ ! -f .env ]; then
+  echo ">> Creation du fichier .env depuis .env.example..."
+  cp .env.example .env
+fi
+
 echo ">> Arret des conteneurs en cours..."
 docker compose down
 
@@ -22,7 +28,7 @@ echo ">> Demarrage de l'environnement..."
 docker compose up -d
 
 echo ">> Attente du demarrage des services..."
-sleep 10
+sleep 15
 
 echo ">> Verification de sante..."
 curl -f http://localhost/health || { echo "ERREUR: health check echoue"; exit 1; }
