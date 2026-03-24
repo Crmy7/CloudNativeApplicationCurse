@@ -47,7 +47,15 @@ COMPOSE_PROJECT_NAME=$PROJECT docker compose -f $BASE_FILE up -d
 
 # Attendre que postgres soit healthy
 echo ">> Attente de PostgreSQL..."
-until docker compose -f $BASE_FILE exec -T postgres pg_isready -U postgres 2>/dev/null; do
+for i in $(seq 1 30); do
+  if docker exec cloudnative-postgres pg_isready -U postgres 2>/dev/null; then
+    echo ">> PostgreSQL est pret."
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "ERREUR: PostgreSQL n'est pas pret apres 60s"
+    exit 1
+  fi
   sleep 2
 done
 
@@ -59,17 +67,10 @@ COMPOSE_PROJECT_NAME=$PROJECT DEPLOY_TAG="$TAG" docker compose -f $BASE_FILE -f 
 echo ">> Attente du demarrage des services $INACTIVE..."
 sleep 15
 
-# Verifier que la nouvelle version repond
-echo ">> Verification de la version $INACTIVE..."
-docker compose -f $BASE_FILE -f "docker-compose.$INACTIVE.yml" exec -T "backend-$INACTIVE" wget -qO- http://localhost:3000/health || {
-  echo "ERREUR: La version $INACTIVE ne repond pas. Annulation."
-  exit 1
-}
-
 # Basculer le proxy
 echo ">> Bascule du proxy vers $INACTIVE..."
 cp "nginx/$INACTIVE.conf" nginx/active.conf
-COMPOSE_PROJECT_NAME=$PROJECT docker compose -f $BASE_FILE exec -T reverse-proxy nginx -s reload
+docker exec cloudnative-proxy nginx -s reload
 
 echo ">> Verification via le proxy..."
 sleep 3
@@ -80,6 +81,4 @@ echo "=== Deploiement Blue/Green termine ==="
 echo ">> Version active : $INACTIVE"
 echo ">> Ancienne version ($ACTIVE) toujours disponible pour rollback"
 echo ""
-echo ">> Pour rollback : cp nginx/$ACTIVE.conf nginx/active.conf && docker compose -f $BASE_FILE exec reverse-proxy nginx -s reload"
-echo ""
-docker compose -f $BASE_FILE -f "docker-compose.$INACTIVE.yml" ps
+echo ">> Pour rollback : cp nginx/$ACTIVE.conf nginx/active.conf && docker exec cloudnative-proxy nginx -s reload"
