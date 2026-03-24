@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ci_password
+      POSTGRES_DB: gym_management
+    networks:
+      - ci_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ci_user"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://ci_user:ci_password@postgres:5432/gym_management?schema=public
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: http://localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ci_net
+    ports:
+      - "3009:3000"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    networks:
+      - ci_net
+    ports:
+      - "8089:80"
+
+networks:
+  ci_net:
+    driver: bridge

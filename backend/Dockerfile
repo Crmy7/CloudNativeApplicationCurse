@@ -1,7 +1,7 @@
-FROM node:20-slim
+# Build stage
+FROM node:20-alpine AS build
 
-# OpenSSL pour Prisma (libssl 1.1)
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
@@ -10,9 +10,26 @@ RUN npm install
 
 COPY . .
 
-# Générer le client Prisma
 RUN npx prisma generate
 
+# Production stage
+FROM node:20-alpine
+
+RUN apk add --no-cache openssl
+
+WORKDIR /app
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/src ./src
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/prisma ./prisma
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p /app/.npm && chown -R appuser:appgroup /app
+USER appuser
+
+ENV NODE_ENV=production
+ENV NPM_CONFIG_CACHE=/app/.npm
 EXPOSE 3000
 
-CMD ["node", "src/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
